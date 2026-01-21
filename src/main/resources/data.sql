@@ -1,0 +1,2 @@
+INSERT INTO orders (customer_name, total_amount, status) VALUES ('Andika Wibawanto', 150.00, 'PENDING');
+INSERT INTO orders (customer_name, total_amount, status) VALUES ('Donald Trump', 89.50, 'CANCELLED');

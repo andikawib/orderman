@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Order Management</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; line-height: 1.6; }
+        .order-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px; }
+        .form-section { background: #f4f4f4; padding: 15px; border-radius: 4px; border: 1px solid #ccc; }
+        .pagination { margin-top: 20px; display: flex; align-items: center; gap: 10px; }
+        button { cursor: pointer; padding: 5px 10px; }
+        .error-msg { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #f5c6cb; }
+        .status-badge { font-weight: bold; text-transform: uppercase; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <h1>Order Management System</h1>
+
+    <div v-if="error" class="error-msg">
+        {{ error }}
+        <button @click="error = ''" style="float: right; padding: 0 5px;">&times;</button>
+    </div>
+
+    <div class="form-section">
+        <h3>Create New Order</h3>
+        <input v-model="newOrder.customerName" placeholder="Customer Name">
+        <input v-model.number="newOrder.totalAmount" type="number" placeholder="Total Amount">
+        <button @click="createOrder">Submit Order</button>
+    </div>
+
+    <div class="orders-list">
+        <h3>Recent Orders</h3>
+        <div v-if="orders.length === 0">No orders found.</div>
+        <div v-for="order in orders" :key="order.id" class="order-card">
+            <strong>Order #{{ order.id }}</strong> - {{ order.customerName }} <br>
+            Amount: ${{ order.totalAmount.toFixed(2) }} |
+            Status: <span class="status-badge">{{ order.status }}</span>
+            <br><br>
+            <button @click="cancelOrder(order.id)" v-if="order.status === 'PENDING'">Cancel Order</button>
+        </div>
+    </div>
+
+    <div class="pagination">
+        <button @click="changePage(currentPage - 1)" :disabled="currentPage === 0">Previous</button>
+        <span>Page {{ currentPage + 1 }}</span>
+        <button @click="changePage(currentPage + 1)" :disabled="isLastPage">Next</button>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const orders = ref([]);
+            const currentPage = ref(0);
+            const isLastPage = ref(false);
+            const error = ref('');
+            const newOrder = ref({ customerName: '', totalAmount: 0 });
+
+            const fetchOrders = async (page = 0) => {
+                try {
+                    const res = await axios.get(`/api/orders?page=${page}&size=5`);
+                    orders.value = res.data.content;
+                    currentPage.value = res.data.number;
+                    isLastPage.value = res.data.last;
+                } catch (err) {
+                    error.value = "Error fetching orders.";
+                }
+            };
+
+            const createOrder = async () => {
+                error.value = '';
+                try {
+                    await axios.post('/api/orders', newOrder.value);
+                    newOrder.value = { customerName: '', totalAmount: 0 };
+                    fetchOrders(0);
+                } catch (err) {
+                    error.value = err.response?.data?.message || err.response?.data || "Failed to create order.";
+                }
+            };
+
+            const cancelOrder = async (id) => {
+                try {
+                    await axios.patch(`/api/orders/${id}/cancel`);
+                    fetchOrders(currentPage.value);
+                } catch (err) {
+                    error.value = "Failed to cancel order.";
+                }
+            };
+
+            const changePage = (page) => fetchOrders(page);
+
+            onMounted(() => fetchOrders());
+
+            return { orders, newOrder, createOrder, cancelOrder, currentPage, isLastPage, changePage, error };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
